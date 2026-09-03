@@ -26,3 +26,25 @@ COL_INVOICE_DATE = "InvoiceDate"
 COL_PRICE = "Price"
 COL_CUSTOMER_ID = "Customer ID"
 COL_COUNTRY = "Country"
+
+# Códigos frecuentes que no representan SKUs de inventario físico.
+NON_PRODUCT_STOCK_CODES = {
+    "POST",
+    "DOT",
+    "M",
+    "C2",
+    "BANK CHARGES",
+    "PADS",
+    "CRUK",
+    "D",
+}
+
+NON_PRODUCT_DESC_KEYWORDS = (
+    "manual",
+    "postage",
+    "bank charges",
+    "adjustment",
+    "check",
+    "test",
+    "amazon fee",
+)

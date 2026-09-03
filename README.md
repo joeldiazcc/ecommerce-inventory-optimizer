@@ -8,8 +8,9 @@ Análisis de demanda retail a partir de transacciones ([Online Retail II](https:
 
 | Pieza | Descripción |
 |-------|-------------|
-| `notebooks/01_carga_limpieza_retail.ipynb` | Pipeline reproducible (carga → limpieza → agregación) |
-| `inventario_ecommerce/` | Código reutilizable (`dataset`, `features`, `plots`) |
+| `notebooks/01_carga_limpieza_retail.ipynb` | Fase 1: carga, limpieza y ventas del último trimestre |
+| `notebooks/02_forecast_reorder_baseline.ipynb` | Fase 2: ABC, forecast baseline y punto de reorden |
+| `inventario_ecommerce/` | Código reutilizable (`dataset`, `features`, `modeling`, `plots`) |
 | `references/data_dictionary.md` | Columnas y reglas de limpieza |
 | `data/raw/sample_online_retail.csv` | Sample para smoke-test sin Kaggle |
 
@@ -20,13 +21,21 @@ Análisis de demanda retail a partir de transacciones ([Online Retail II](https:
 | Filas raw | ~1.07M |
 | Filas tras limpieza | ~1.04M |
 | Periodo (último trimestre) | 2011-09-10 → 2011-12-09 |
-| SKUs con venta | 3 444 |
+| SKUs con venta (tras filtros de no-producto) | 3,386 |
+| MAE baseline (backtest 30 días) | 20.19 ud/día |
 
 ## Cómo ejecutarlo
 
 ```bash
 pip install -r requirements.txt
 jupyter notebook notebooks/01_carga_limpieza_retail.ipynb
+```
+
+Para generar artefactos de modelado desde terminal:
+
+```bash
+python -m inventario_ecommerce.modeling.train
+python -m inventario_ecommerce.modeling.predict
 ```
 
 ### Dataset completo
@@ -48,11 +57,19 @@ references/               # diccionario de datos
 reports/figures/          # gráfico de ejemplo versionado
 ```
 
-## Roadmap
+## Entregables generados (local)
 
-1. Clasificación ABC  
-2. Features rolling de demanda  
-3. Forecast baseline + punto de reorden  
+- `data/processed/abc_last_quarter.csv`
+- `data/processed/sku_rolling_features_latest.csv`
+- `data/processed/forecast_backtest_by_sku.csv`
+- `data/processed/forecast_backtest_global.csv`
+- `data/processed/inventory_reorder_recommendations.csv`
+
+## Próximas mejoras
+
+1. Forecast por familia (SARIMA/Prophet/lightgbm)  
+2. Incorporar stock actual y lead time real por proveedor  
+3. Simulador de quiebre/sobrestock por política  
 
 ## Stack
 

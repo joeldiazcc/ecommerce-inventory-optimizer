@@ -1,0 +1,40 @@
+# Ignore data files (keep directory structure)
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/sample_online_retail.csv
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/external/*
+!data/external/.gitkeep
+
+# Never commit the full Online Retail II dump
+data/raw/online_retail_II.csv
+data/raw/online_retail_II.xlsx
+
+# Generated figures: version only the portfolio sample chart
+reports/figures/*
+!reports/figures/.gitkeep
+!reports/figures/top_products_last_quarter.png
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

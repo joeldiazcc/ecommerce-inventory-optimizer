@@ -8,9 +8,9 @@ Análisis de demanda retail a partir de transacciones ([Online Retail II](https:
 
 | Pieza | Descripción |
 |-------|-------------|
-| `notebooks/01_carga_limpieza_retail.ipynb` | Fase 1: carga, limpieza y ventas del último trimestre |
-| `notebooks/02_forecast_reorder_baseline.ipynb` | Fase 2: ABC, forecast baseline y punto de reorden |
-| `notebooks/03_demand_hygiene.ipynb` | Fase 3: ceros en calendario, winsor y filtro no-producto |
+| `notebooks/01_carga_limpieza_retail.ipynb` | Carga, limpieza y ventas del último trimestre |
+| `notebooks/02_forecast_reorder_baseline.ipynb` | ABC, forecast baseline y punto de reorden |
+| `notebooks/03_demand_hygiene.ipynb` | Calendario con ceros, winsor y filtro no-producto |
 | `inventario_ecommerce/` | Código reutilizable (`dataset`, `features`, `modeling`, `plots`) |
 | `references/data_dictionary.md` | Columnas y reglas de limpieza |
 | `data/raw/sample_online_retail.csv` | Sample para smoke-test sin Kaggle |
@@ -58,19 +58,13 @@ references/               # diccionario de datos
 reports/figures/          # gráfico de ejemplo versionado
 ```
 
-## Entregables generados (local)
+## Artefactos generados (local)
 
 - `data/processed/abc_last_quarter.csv`
 - `data/processed/sku_rolling_features_latest.csv`
 - `data/processed/forecast_backtest_by_sku.csv`
 - `data/processed/forecast_backtest_global.csv`
 - `data/processed/inventory_reorder_recommendations.csv`
-
-## Próximas mejoras
-
-1. Forecast por familia / top-N clase A (Prophet, ETS o LightGBM) vs baseline  
-2. Incorporar stock actual y lead time real por proveedor  
-3. Simulador de quiebre/sobrestock por política  
 
 ## Stack
 

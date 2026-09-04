@@ -54,10 +54,13 @@ def clean_transactions(df: pd.DataFrame) -> pd.DataFrame:
     # Quitar líneas que no representan stock físico de inventario.
     stock_upper = cleaned[config.COL_STOCK_CODE].astype(str).str.upper().str.strip()
     desc_lower = cleaned[config.COL_DESCRIPTION].astype(str).str.lower()
+    keyword_pattern = "|".join(config.NON_PRODUCT_DESC_KEYWORDS)
     non_product_mask = stock_upper.isin(config.NON_PRODUCT_STOCK_CODES) | (
-        desc_lower.str.contains("|".join(config.NON_PRODUCT_DESC_KEYWORDS), regex=True)
+        desc_lower.str.contains(keyword_pattern, regex=True, na=False)
     )
-    cleaned = cleaned[~non_product_mask]
+    # Descripción exacta "check" / "manual" (basura), sin matchear "CHECK hammock", etc.
+    exact_junk_desc = desc_lower.isin({"check", "manual", "adjustment"})
+    cleaned = cleaned[~(non_product_mask | exact_junk_desc)]
 
     cleaned["Sales"] = cleaned[config.COL_QUANTITY] * cleaned[config.COL_PRICE]
     return cleaned.reset_index(drop=True)
@@ -104,6 +107,79 @@ def build_daily_sku_demand(df: pd.DataFrame) -> pd.DataFrame:
         )
     )
     return result.sort_values(["Date", config.COL_STOCK_CODE]).reset_index(drop=True)
+
+
+def fill_missing_demand_days(daily_sku_demand: pd.DataFrame) -> pd.DataFrame:
+    """Rellena días sin venta con 0 desde la 1.ª venta de cada SKU hasta el max global.
+
+    Sin esto, rolling/media solo ven días con transacción y sesgan la demanda al alza.
+    """
+    if daily_sku_demand.empty:
+        return daily_sku_demand
+
+    group_cols = [config.COL_STOCK_CODE, config.COL_DESCRIPTION]
+    daily = daily_sku_demand.copy()
+    daily["Date"] = pd.to_datetime(daily["Date"]).dt.normalize()
+    global_end = daily["Date"].max()
+
+    frames: list[pd.DataFrame] = []
+    for (stock, desc), grp in daily.groupby(group_cols, sort=False):
+        full_idx = pd.date_range(grp["Date"].min(), global_end, freq="D")
+        aligned = grp.set_index("Date").reindex(full_idx)
+        aligned[config.COL_STOCK_CODE] = stock
+        aligned[config.COL_DESCRIPTION] = desc
+        aligned["QuantitySold"] = aligned["QuantitySold"].fillna(0.0)
+        aligned["DailySales"] = aligned["DailySales"].fillna(0.0)
+        aligned["NTransactions"] = aligned["NTransactions"].fillna(0)
+        frames.append(aligned)
+
+    out = pd.concat(frames)
+    out.index.name = "Date"
+    return (
+        out.reset_index()
+        .sort_values(["Date", config.COL_STOCK_CODE])
+        .reset_index(drop=True)
+    )
+
+
+def winsorize_daily_quantity(
+    daily_sku_demand: pd.DataFrame,
+    percentile: float | None = None,
+) -> pd.DataFrame:
+    """Cap QuantitySold diaria al percentil global (días con venta > 0)."""
+    if daily_sku_demand.empty:
+        return daily_sku_demand
+
+    pct = (
+        config.DAILY_QTY_WINSOR_PERCENTILE if percentile is None else percentile
+    )
+    out = daily_sku_demand.copy()
+    positive = out.loc[out["QuantitySold"] > 0, "QuantitySold"]
+    if positive.empty:
+        return out
+
+    cap = float(positive.quantile(pct))
+    out["QuantitySold"] = out["QuantitySold"].clip(upper=cap)
+    return out
+
+
+def drop_outlier_skus(daily_sku_demand: pd.DataFrame) -> pd.DataFrame:
+    """Excluye SKUs one-shot conocidos del modelado de demanda."""
+    if daily_sku_demand.empty:
+        return daily_sku_demand
+    stock = daily_sku_demand[config.COL_STOCK_CODE].astype(str).str.strip()
+    return daily_sku_demand[
+        ~stock.isin(config.OUTLIER_STOCK_CODES)
+    ].reset_index(drop=True)
+
+
+def prepare_daily_demand(df: pd.DataFrame) -> pd.DataFrame:
+    """Pipeline diario: agregación → ceros → winsor → drop outliers."""
+    daily = build_daily_sku_demand(df)
+    daily = fill_missing_demand_days(daily)
+    daily = winsorize_daily_quantity(daily)
+    daily = drop_outlier_skus(daily)
+    return daily
 
 
 def compute_abc_classification(

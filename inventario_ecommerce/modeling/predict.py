@@ -8,10 +8,10 @@ import pandas as pd
 from inventario_ecommerce import config
 from inventario_ecommerce.dataset import load_transactions, save_processed
 from inventario_ecommerce.features import (
-    build_daily_sku_demand,
     build_rolling_features,
     clean_transactions,
     compute_abc_classification,
+    prepare_daily_demand,
     sales_by_product_last_quarter,
 )
 
@@ -21,17 +21,27 @@ def forecast_30d_baseline(
     lookback_days: int = 30,
     horizon_days: int = 30,
 ) -> pd.DataFrame:
-    """Forecast simple por SKU: media diaria de la ventana lookback."""
+    """Forecast simple por SKU: media diaria de la ventana lookback.
+
+    Solo incluye SKUs con al menos una unidad vendida en el lookback
+    (tras rellenar ceros, la media ya refleja días sin venta).
+    """
     max_date = daily_sku_demand["Date"].max()
-    hist = daily_sku_demand[daily_sku_demand["Date"] > (max_date - pd.Timedelta(days=lookback_days))]
+    hist = daily_sku_demand[
+        daily_sku_demand["Date"] > (max_date - pd.Timedelta(days=lookback_days))
+    ]
 
     forecast = (
         hist.groupby([config.COL_STOCK_CODE, config.COL_DESCRIPTION], as_index=False)
-        .agg(forecast_daily=("QuantitySold", "mean"))
+        .agg(
+            forecast_daily=("QuantitySold", "mean"),
+            lookback_qty=("QuantitySold", "sum"),
+        )
         .fillna(0.0)
     )
+    forecast = forecast[forecast["lookback_qty"] > 0].drop(columns=["lookback_qty"])
     forecast["forecast_30d"] = forecast["forecast_daily"] * horizon_days
-    return forecast
+    return forecast.reset_index(drop=True)
 
 
 def build_reorder_policy(
@@ -49,10 +59,8 @@ def build_reorder_policy(
     ).merge(
         abc[[config.COL_STOCK_CODE, config.COL_DESCRIPTION, "ABCClass", "TotalSales"]],
         on=[config.COL_STOCK_CODE, config.COL_DESCRIPTION],
-        how="left",
+        how="inner",
     )
-
-    policy["ABCClass"] = policy["ABCClass"].fillna("C")
 
     # Nivel de servicio por clase ABC (simple y explicable para baseline junior)
     z_map = {"A": 1.88, "B": 1.65, "C": 1.28}
@@ -103,7 +111,7 @@ def predict() -> pd.DataFrame:
     """Genera tabla final de recomendaciones de inventario por SKU."""
     raw = load_transactions()
     clean = clean_transactions(raw)
-    daily = build_daily_sku_demand(clean)
+    daily = prepare_daily_demand(clean)
 
     rolling = build_rolling_features(daily)
     latest_features = (

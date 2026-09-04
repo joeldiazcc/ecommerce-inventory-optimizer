@@ -8,10 +8,10 @@ import pandas as pd
 from inventario_ecommerce import config
 from inventario_ecommerce.dataset import load_transactions, save_processed
 from inventario_ecommerce.features import (
-    build_daily_sku_demand,
     build_rolling_features,
     clean_transactions,
     compute_abc_classification,
+    prepare_daily_demand,
     sales_by_product_last_quarter,
 )
 
@@ -98,7 +98,7 @@ def train() -> dict[str, pd.DataFrame]:
     abc = compute_abc_classification(last_quarter_sales, sales_col="TotalSales")
     save_processed(abc, "abc_last_quarter.csv")
 
-    daily = build_daily_sku_demand(clean)
+    daily = prepare_daily_demand(clean)
     rolling = build_rolling_features(daily)
     latest_features = (
         rolling.sort_values("Date")

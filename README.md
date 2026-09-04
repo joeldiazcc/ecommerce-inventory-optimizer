@@ -10,6 +10,7 @@ Análisis de demanda retail a partir de transacciones ([Online Retail II](https:
 |-------|-------------|
 | `notebooks/01_carga_limpieza_retail.ipynb` | Fase 1: carga, limpieza y ventas del último trimestre |
 | `notebooks/02_forecast_reorder_baseline.ipynb` | Fase 2: ABC, forecast baseline y punto de reorden |
+| `notebooks/03_demand_hygiene.ipynb` | Fase 3: ceros en calendario, winsor y filtro no-producto |
 | `inventario_ecommerce/` | Código reutilizable (`dataset`, `features`, `modeling`, `plots`) |
 | `references/data_dictionary.md` | Columnas y reglas de limpieza |
 | `data/raw/sample_online_retail.csv` | Sample para smoke-test sin Kaggle |
@@ -19,10 +20,10 @@ Análisis de demanda retail a partir de transacciones ([Online Retail II](https:
 | Métrica | Valor |
 |--------|------:|
 | Filas raw | ~1.07M |
-| Filas tras limpieza | ~1.04M |
 | Periodo (último trimestre) | 2011-09-10 → 2011-12-09 |
-| SKUs con venta (tras filtros de no-producto) | 3,386 |
-| MAE baseline (backtest 30 días) | 20.19 ud/día |
+| SKUs ABC (último trimestre) | 3,393 |
+| Recomendaciones (activos lookback ∩ ABC) | 2,963 |
+| MAE baseline (backtest 30d, con días a 0) | 4.06 ud/día |
 
 ## Cómo ejecutarlo
 
@@ -52,7 +53,7 @@ Sin él, el sample local basta para validar el código.
 ```
 data/raw|interim|processed|external
 notebooks/
-inventario_ecommerce/     # config, carga, limpieza, plots
+inventario_ecommerce/     # config, carga, features, modeling, plots
 references/               # diccionario de datos
 reports/figures/          # gráfico de ejemplo versionado
 ```
@@ -67,7 +68,7 @@ reports/figures/          # gráfico de ejemplo versionado
 
 ## Próximas mejoras
 
-1. Forecast por familia (SARIMA/Prophet/lightgbm)  
+1. Forecast por familia / top-N clase A (Prophet, ETS o LightGBM) vs baseline  
 2. Incorporar stock actual y lead time real por proveedor  
 3. Simulador de quiebre/sobrestock por política  
 

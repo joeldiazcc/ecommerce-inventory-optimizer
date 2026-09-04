@@ -17,5 +17,12 @@ Fuente: transacciones de un retailer online UK (dic. 2009 – dic. 2011).
 
 - Drop filas con `Description`, `InvoiceDate` o `Price` nulos
 - Conservar solo `Quantity > 0` y `Price >= 0`
+- Excluir no-producto: códigos (`POST`, `DOT`, `M`, `TEST001`, `ADJUST`, …) y frases (`postage`, `this is a test`, …); descripción exacta `check` / `manual` / `adjustment`
 - `Sales = Quantity * Price`
 - Ventana “último trimestre” = 3 meses hacia atrás desde la fecha máxima del dataset
+
+## Demanda diaria (modelado)
+
+- Relleno de días sin venta a 0 (por SKU, desde la 1.ª venta hasta la fecha máxima)
+- Cap de `QuantitySold` al percentil 99 global (días con venta > 0)
+- Exclusión del outlier one-shot `23843` del forecast / ROP

@@ -10,7 +10,7 @@ INTERIM_DATA_DIR = DATA_DIR / "interim"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
 
-MODELS_DIR = PROJECT_ROOT / "models"  # reservado (forecast / reorden)
+MODELS_DIR = PROJECT_ROOT / "models"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 
@@ -37,14 +37,25 @@ NON_PRODUCT_STOCK_CODES = {
     "PADS",
     "CRUK",
     "D",
+    "TEST001",
+    "TEST002",
+    "ADJUST",
+    "ADJUST2",
 }
 
+# Substrings seguros (no matchean productos con "check" / "test" en el nombre).
 NON_PRODUCT_DESC_KEYWORDS = (
-    "manual",
     "postage",
     "bank charges",
-    "adjustment",
-    "check",
-    "test",
     "amazon fee",
+    "this is a test",
+    "adjustment by",
 )
+
+# One-shots conocidos que distorsionan media móvil / top de recomendaciones.
+OUTLIER_STOCK_CODES = {
+    "23843",  # PAPER CRAFT LITTLE BIRDIE (~80k ud en un día)
+}
+
+# Cap de QuantitySold diaria (percentil global sobre días con venta > 0).
+DAILY_QTY_WINSOR_PERCENTILE = 0.99

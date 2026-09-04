@@ -1,6 +1,3 @@
-"""
-Modelado (forecast / reorden) — pendiente de la siguiente fase del proyecto.
+"""Modelado baseline: entrenamiento y recomendación de reorden."""
 
-Este subpaquete se deja vacío a propósito hasta tener un baseline real;
-así el repo no publica stubs con NotImplementedError.
-"""
+__all__ = ["train", "predict"]

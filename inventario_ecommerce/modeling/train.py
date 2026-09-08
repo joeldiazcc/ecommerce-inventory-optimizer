@@ -14,6 +14,8 @@ from inventario_ecommerce.features import (
     prepare_daily_demand,
     sales_by_product_last_quarter,
 )
+from inventario_ecommerce.modeling.ets import temporal_backtest_ets_vs_baseline
+from inventario_ecommerce.plots import plot_class_a_mae_comparison
 
 
 def _safe_mape(y_true: pd.Series, y_pred: pd.Series) -> float:
@@ -112,17 +114,24 @@ def train() -> dict[str, pd.DataFrame]:
     save_processed(sku_metrics, "forecast_backtest_by_sku.csv")
     save_processed(global_metrics, "forecast_backtest_global.csv")
 
+    class_a_by_sku, class_a_global = temporal_backtest_ets_vs_baseline(daily, abc)
+    save_processed(class_a_by_sku, "forecast_backtest_class_a.csv")
+    save_processed(class_a_global, "forecast_backtest_class_a_global.csv")
+    plot_class_a_mae_comparison(class_a_global, save=True)
+
     return {
         "abc": abc,
         "latest_features": latest_features,
         "backtest_by_sku": sku_metrics,
         "backtest_global": global_metrics,
+        "backtest_class_a": class_a_by_sku,
+        "backtest_class_a_global": class_a_global,
     }
 
 
 if __name__ == "__main__":
     outputs = train()
-    print("Entrenamiento baseline completado.")
+    print("Entrenamiento completado.")
     print("Artefactos:")
     for key, value in outputs.items():
         print(f"- {key}: {len(value):,} filas")

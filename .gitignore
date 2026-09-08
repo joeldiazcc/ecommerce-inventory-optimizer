@@ -13,10 +13,12 @@ data/external/*
 data/raw/online_retail_II.csv
 data/raw/online_retail_II.xlsx
 
-# Generated figures: version only the portfolio sample chart
+# Generated figures: version only the portfolio sample charts
 reports/figures/*
 !reports/figures/.gitkeep
 !reports/figures/top_products_last_quarter.png
+!reports/figures/class_a_ets_vs_baseline.png
+!reports/figures/class_a_sku_forecast.png
 
 # Python
 __pycache__/
@@ -33,8 +35,14 @@ venv/
 # Jupyter
 .ipynb_checkpoints/
 
+# Pytest
+.pytest_cache/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Notas de sesión / Cursor (no van al repo público)
+references/

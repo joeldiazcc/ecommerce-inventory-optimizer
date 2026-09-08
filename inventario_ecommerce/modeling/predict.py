@@ -14,6 +14,7 @@ from inventario_ecommerce.features import (
     prepare_daily_demand,
     sales_by_product_last_quarter,
 )
+from inventario_ecommerce.modeling.ets import forecast_ets_class_a, overlay_ets_forecast
 
 
 def forecast_30d_baseline(
@@ -41,6 +42,7 @@ def forecast_30d_baseline(
     )
     forecast = forecast[forecast["lookback_qty"] > 0].drop(columns=["lookback_qty"])
     forecast["forecast_30d"] = forecast["forecast_daily"] * horizon_days
+    forecast["forecast_model"] = "ma30"
     return forecast.reset_index(drop=True)
 
 
@@ -52,7 +54,10 @@ def build_reorder_policy(
     review_period_days: int = 7,
 ) -> pd.DataFrame:
     """Construye tabla de punto de reorden y stock sugerido."""
-    policy = forecast[[config.COL_STOCK_CODE, config.COL_DESCRIPTION, "forecast_daily", "forecast_30d"]].merge(
+    forecast_cols = [config.COL_STOCK_CODE, config.COL_DESCRIPTION, "forecast_daily", "forecast_30d"]
+    if "forecast_model" in forecast.columns:
+        forecast_cols.append("forecast_model")
+    policy = forecast[forecast_cols].merge(
         latest_features,
         on=[config.COL_STOCK_CODE, config.COL_DESCRIPTION],
         how="inner",
@@ -87,6 +92,9 @@ def build_reorder_policy(
         ),
     )
 
+    if "forecast_model" not in policy.columns:
+        policy["forecast_model"] = "ma30"
+
     keep_cols = [
         config.COL_STOCK_CODE,
         config.COL_DESCRIPTION,
@@ -94,6 +102,7 @@ def build_reorder_policy(
         "TotalSales",
         "forecast_daily",
         "forecast_30d",
+        "forecast_model",
         "demand_mean_30d",
         "demand_std_30d",
         "demand_cv_30d",
@@ -122,6 +131,8 @@ def predict() -> pd.DataFrame:
     )
     forecast = forecast_30d_baseline(daily, lookback_days=30, horizon_days=30)
     abc = compute_abc_classification(sales_by_product_last_quarter(clean))
+    ets = forecast_ets_class_a(daily, abc)
+    forecast = overlay_ets_forecast(forecast, ets)
 
     policy = build_reorder_policy(latest_features, forecast, abc)
     save_processed(policy, "inventory_reorder_recommendations.csv")

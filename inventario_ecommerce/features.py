@@ -196,11 +196,11 @@ def compute_abc_classification(
     abc["SalesShare"] = np.where(total_sales > 0, abc[sales_col] / total_sales, 0.0)
     abc["CumSalesShare"] = abc["SalesShare"].cumsum()
 
+    # Redondear antes de comparar: la suma acumulada puede dar 0.9500000000000001
+    # y tirar a C un SKU que está justo en el corte.
+    cum_share = abc["CumSalesShare"].round(10)
     abc["ABCClass"] = np.select(
-        [
-            abc["CumSalesShare"] <= 0.80,
-            abc["CumSalesShare"] <= 0.95,
-        ],
+        [cum_share <= 0.80, cum_share <= 0.95],
         ["A", "B"],
         default="C",
     )

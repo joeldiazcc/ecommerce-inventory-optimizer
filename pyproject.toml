@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inventario-ecommerce"
+version = "0.1.0"
+description = "Optimización de inventario e-commerce: demanda diaria, ABC, forecast y punto de reorden"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    "statsmodels>=0.14.0",
+    "openpyxl>=3.1.0",
+    "jupyter>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["inventario_ecommerce*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

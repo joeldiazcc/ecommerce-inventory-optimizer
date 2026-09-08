@@ -1,7 +1,10 @@
-.PHONY: requirements notebook notebook2 notebook3 notebook4 train predict
+.PHONY: requirements test notebook notebook2 notebook3 notebook4 train predict
 
 requirements:
-	pip install -r requirements.txt
+	pip install -e ".[dev]"
+
+test:
+	python -m pytest -q
 
 notebook:
 	jupyter notebook notebooks/01_carga_limpieza_retail.ipynb

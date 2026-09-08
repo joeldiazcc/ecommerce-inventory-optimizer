@@ -28,7 +28,6 @@ def plot_top_products_by_sales(
         config.FIGURES_DIR.mkdir(parents=True, exist_ok=True)
         out_path = config.FIGURES_DIR / "top_products_last_quarter.png"
         fig.savefig(out_path, dpi=120)
-    plt.show()
     return out_path
 
 
@@ -53,5 +52,34 @@ def plot_class_a_mae_comparison(
         config.FIGURES_DIR.mkdir(parents=True, exist_ok=True)
         out_path = config.FIGURES_DIR / "class_a_ets_vs_baseline.png"
         fig.savefig(out_path, dpi=120)
-    plt.close(fig)
+    return out_path
+
+
+def plot_sku_forecast_comparison(
+    comparison: pd.DataFrame,
+    title: str,
+    save: bool = True,
+) -> Path | None:
+    """Serie real del holdout frente a la media móvil y al ETS, para un SKU."""
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(comparison["Date"], comparison["real"], color="#212529", label="Real")
+    ax.plot(
+        comparison["Date"],
+        comparison["ma30"],
+        color="#6c757d",
+        linestyle="--",
+        label="Media móvil 30d",
+    )
+    ax.plot(comparison["Date"], comparison["ets"], color="#0d6efd", label="ETS")
+    ax.set_ylabel("Unidades/día")
+    ax.set_title(title)
+    ax.legend()
+    fig.autofmt_xdate()
+    fig.tight_layout()
+
+    out_path = None
+    if save:
+        config.FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = config.FIGURES_DIR / "class_a_sku_forecast.png"
+        fig.savefig(out_path, dpi=120)
     return out_path

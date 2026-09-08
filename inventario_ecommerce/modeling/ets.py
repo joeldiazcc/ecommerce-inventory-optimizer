@@ -115,6 +115,57 @@ def overlay_ets_forecast(
     return merged.drop(columns=drop_cols)
 
 
+def sku_backtest_series(
+    daily_sku_demand: pd.DataFrame,
+    stock_code: str,
+    horizon_days: int = 30,
+    lookback_days: int = 30,
+) -> pd.DataFrame:
+    """Real vs media móvil vs ETS día a día en el holdout, para un solo SKU."""
+    daily = daily_sku_demand.copy()
+    daily["Date"] = pd.to_datetime(daily["Date"]).dt.normalize()
+
+    matches = daily[daily[config.COL_STOCK_CODE].astype(str) == str(stock_code)]
+    if matches.empty:
+        raise ValueError(f"El SKU {stock_code} no está en la demanda diaria.")
+    stock = matches[config.COL_STOCK_CODE].iloc[0]
+    desc = matches[config.COL_DESCRIPTION].value_counts().index[0]
+
+    max_date = daily["Date"].max()
+    cutoff = max_date - pd.Timedelta(days=horizon_days)
+    y_train = _sku_series(daily[daily["Date"] <= cutoff], stock, desc)
+    y_test = _sku_series(daily[daily["Date"] > cutoff], stock, desc)
+    if y_test.empty:
+        raise ValueError(f"El SKU {stock_code} no tiene datos en el holdout.")
+
+    tail = y_train.iloc[-lookback_days:] if len(y_train) else y_train
+    ma = float(tail.mean()) if len(tail) else 0.0
+
+    fc = fit_ets_horizon(y_train, horizon_days)
+    if fc is None:
+        ets = pd.Series(ma, index=y_test.index)
+    else:
+        ets = (
+            pd.Series(np.asarray(fc, dtype=float), index=fc.index)
+            .reindex(y_test.index)
+            .fillna(ma)
+            .clip(lower=0.0)
+        )
+
+    comparison = pd.DataFrame(
+        {
+            "Date": y_test.index,
+            "real": y_test.to_numpy(),
+            "ma30": ma,
+            "ets": ets.to_numpy(),
+        }
+    )
+    comparison.attrs["description"] = desc
+    comparison.attrs["mae_ma30"] = float((comparison["real"] - comparison["ma30"]).abs().mean())
+    comparison.attrs["mae_ets"] = float((comparison["real"] - comparison["ets"]).abs().mean())
+    return comparison
+
+
 def temporal_backtest_ets_vs_baseline(
     daily_sku_demand: pd.DataFrame,
     abc: pd.DataFrame,
@@ -176,6 +227,7 @@ def temporal_backtest_ets_vs_baseline(
                 config.COL_DESCRIPTION: desc,
                 "MAE_ma30": mae_ma,
                 "MAE_ets": mae_ets,
+                "MAE_delta": mae_ma - mae_ets,
                 "RealMeanDaily": float(y_test.mean()),
                 "PredMeanDaily_ma30": float(pred_ma.mean()),
                 "PredMeanDaily_ets": float(pred_ets.mean()),

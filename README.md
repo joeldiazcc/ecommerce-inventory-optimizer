@@ -11,7 +11,7 @@ Fuente: [Online Retail II (UCI / Kaggle)](https://www.kaggle.com/datasets/mashly
 1. **Limpieza** — nulos, devoluciones y líneas que no son producto físico
 2. **Demanda diaria** — calendario continuo (ceros), cap P99 y exclusión de one-shots
 3. **ABC** — 80% / 95% de ventas acumuladas del último trimestre
-4. **Forecast** — media diaria de los últimos 30 días, backtest temporal (MAE / MAPE)
+4. **Forecast** — media móvil 30 días en el catálogo; Holt-Winters (ETS) en el top 100 clase A
 5. **Reorden** — lead time 14 d, revisión 7 d, z según clase A/B/C
 
 El dataset no trae stock on-hand: `recommended_order_qty` es la demanda del ciclo de revisión (`forecast_daily × 7`).
@@ -24,9 +24,14 @@ El dataset no trae stock on-hand: `recommended_order_qty` es la demanda del cicl
 | Periodo (último trimestre) | 2011-09-10 → 2011-12-09 |
 | SKUs ABC (último trimestre) | 3,393 |
 | Recomendaciones (activos lookback ∩ ABC) | 2,963 |
-| MAE baseline (backtest 30d, calendario con ceros) | 4.06 ud/día |
+| MAE catálogo (MA30, backtest 30d) | 4.06 ud/día |
+| MAE top clase A — MA30 | 36.79 ud/día |
+| MAE top clase A — ETS | 32.40 ud/día |
+| ETS mejor que MA30 | 71 / 95 SKUs con ajuste |
 
-El MAE se evalúa sobre **todos** los días del holdout, no solo los días con ticket. Es la métrica adecuada para demanda intermitente; no es comparable a un MAE calculado solo en días con venta.
+El MAE de catálogo se evalúa sobre **todos** los días del holdout (incluye ceros). El MAE de clase A es más alto porque esos SKUs mueven muchas más unidades; ETS mejora ~12% frente a la media móvil en el mismo holdout.
+
+![MAE clase A: media móvil vs ETS](reports/figures/class_a_ets_vs_baseline.png)
 
 ## Qué hay en este repo
 
@@ -35,6 +40,7 @@ El MAE se evalúa sobre **todos** los días del holdout, no solo los días con t
 | `notebooks/01_carga_limpieza_retail.ipynb` | Carga, calidad, limpieza y ventas del último trimestre |
 | `notebooks/02_forecast_reorder_baseline.ipynb` | ABC, forecast, backtest y tabla de reorden |
 | `notebooks/03_demand_hygiene.ipynb` | Por qué se rellenan ceros y se recortan outliers |
+| `notebooks/04_forecast_class_a.ipynb` | Holt-Winters vs media móvil en el top clase A |
 | `inventario_ecommerce/` | Código reutilizable (`dataset`, `features`, `modeling`, `plots`) |
 | `data/raw/sample_online_retail.csv` | Sample para smoke-test sin Kaggle |
 
@@ -45,7 +51,7 @@ pip install -r requirements.txt
 jupyter notebook notebooks/01_carga_limpieza_retail.ipynb
 ```
 
-Notebooks en orden: **01** (datos) → **02** (modelo y reorden). La **03** explica la higiene de demanda; no sustituye a la 02.
+Notebooks en orden: **01** (datos) → **02** (modelo y reorden). La **03** explica la higiene de demanda; la **04** compara ETS vs baseline en clase A.
 
 Pipeline completo desde terminal:
 
@@ -79,8 +85,10 @@ reports/figures/          # gráfico de ejemplo versionado
 - `data/processed/sku_rolling_features_latest.csv`
 - `data/processed/forecast_backtest_by_sku.csv`
 - `data/processed/forecast_backtest_global.csv`
+- `data/processed/forecast_backtest_class_a.csv`
+- `data/processed/forecast_backtest_class_a_global.csv`
 - `data/processed/inventory_reorder_recommendations.csv`
 
 ## Stack
 
-Python · pandas · numpy · matplotlib · Jupyter
+Python · pandas · numpy · matplotlib · statsmodels · Jupyter

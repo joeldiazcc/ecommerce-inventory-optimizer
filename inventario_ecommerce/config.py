@@ -59,3 +59,8 @@ OUTLIER_STOCK_CODES = {
 
 # Cap de QuantitySold diaria (percentil global sobre días con venta > 0).
 DAILY_QTY_WINSOR_PERCENTILE = 0.99
+
+# ETS (Holt-Winters) sobre top-N clase A; el resto sigue en media móvil 30d.
+CLASS_A_ETS_TOP_N = 100
+ETS_SEASONAL_PERIODS = 7
+ETS_MIN_TRAIN_DAYS = 56

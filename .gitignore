@@ -13,10 +13,11 @@ data/external/*
 data/raw/online_retail_II.csv
 data/raw/online_retail_II.xlsx
 
-# Generated figures: version only the portfolio sample chart
+# Generated figures: version only the portfolio sample charts
 reports/figures/*
 !reports/figures/.gitkeep
 !reports/figures/top_products_last_quarter.png
+!reports/figures/class_a_ets_vs_baseline.png
 
 # Python
 __pycache__/

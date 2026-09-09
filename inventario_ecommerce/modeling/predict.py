@@ -6,7 +6,11 @@ import numpy as np
 import pandas as pd
 
 from inventario_ecommerce import config
-from inventario_ecommerce.dataset import load_transactions, save_processed
+from inventario_ecommerce.dataset import (
+    load_stock_positions,
+    load_transactions,
+    save_processed,
+)
 from inventario_ecommerce.features import (
     build_rolling_features,
     clean_transactions,
@@ -46,14 +50,59 @@ def forecast_30d_baseline(
     return forecast.reset_index(drop=True)
 
 
+def _apply_stock_positions(
+    policy: pd.DataFrame,
+    stock_positions: pd.DataFrame | None,
+    review_period_days: int,
+) -> pd.DataFrame:
+    """Calcula el pedido sugerido con o sin posición de inventario conocida."""
+    out = policy.copy()
+    if stock_positions is None or stock_positions.empty:
+        out["on_hand"] = np.nan
+        out["on_order"] = np.nan
+        out["inventory_position"] = np.nan
+        out["recommended_order_qty"] = (out["forecast_daily"] * review_period_days).clip(
+            lower=0.0
+        )
+        out["order_basis"] = "ciclo_revision"
+        return out
+
+    positions = stock_positions.copy()
+    positions[config.COL_STOCK_CODE] = (
+        positions[config.COL_STOCK_CODE].astype(str).str.strip()
+    )
+    out["_stock"] = out[config.COL_STOCK_CODE].astype(str).str.strip()
+    out = out.merge(
+        positions.rename(columns={config.COL_STOCK_CODE: "_stock"}),
+        on="_stock",
+        how="left",
+    ).drop(columns=["_stock"])
+
+    out["on_hand"] = out["on_hand"].fillna(0.0)
+    out["on_order"] = out["on_order"].fillna(0.0)
+    out["inventory_position"] = out["on_hand"] + out["on_order"]
+    out["recommended_order_qty"] = (
+        out["target_stock"] - out["inventory_position"]
+    ).clip(lower=0.0)
+    # Solo se pide cuando la posición ha caído al punto de reorden.
+    out.loc[out["inventory_position"] > out["reorder_point"], "recommended_order_qty"] = 0.0
+    out["order_basis"] = "target_menos_posicion"
+    return out
+
+
 def build_reorder_policy(
     latest_features: pd.DataFrame,
     forecast: pd.DataFrame,
     abc: pd.DataFrame,
-    lead_time_days: int = 14,
-    review_period_days: int = 7,
+    lead_time_days: int = config.LEAD_TIME_DAYS,
+    review_period_days: int = config.REVIEW_PERIOD_DAYS,
+    stock_positions: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Construye tabla de punto de reorden y stock sugerido."""
+    """Construye tabla de punto de reorden y stock sugerido.
+
+    Con `stock_positions` el pedido es `target − on_hand − on_order`; sin ella,
+    la demanda del ciclo de revisión.
+    """
     forecast_cols = [config.COL_STOCK_CODE, config.COL_DESCRIPTION, "forecast_daily", "forecast_30d"]
     if "forecast_model" in forecast.columns:
         forecast_cols.append("forecast_model")
@@ -68,8 +117,11 @@ def build_reorder_policy(
     )
 
     # Nivel de servicio por clase ABC (simple y explicable para baseline junior)
-    z_map = {"A": 1.88, "B": 1.65, "C": 1.28}
-    policy["z_service"] = policy["ABCClass"].map(z_map).fillna(1.28)
+    policy["z_service"] = (
+        policy["ABCClass"]
+        .map(config.SERVICE_Z_BY_CLASS)
+        .fillna(config.DEFAULT_SERVICE_Z)
+    )
     sigma = policy["demand_std_30d"].fillna(0.0)
 
     policy["safety_stock"] = policy["z_service"] * sigma * np.sqrt(lead_time_days)
@@ -79,9 +131,7 @@ def build_reorder_policy(
         policy["forecast_daily"] * review_period_days
     )
 
-    policy["recommended_order_qty"] = (
-        policy["target_stock"] - policy["reorder_point"]
-    ).clip(lower=0.0)
+    policy = _apply_stock_positions(policy, stock_positions, review_period_days)
     policy["recommendation"] = np.where(
         policy["ABCClass"] == "A",
         "Monitoreo diario; evitar quiebres",
@@ -110,7 +160,11 @@ def build_reorder_policy(
         "safety_stock",
         "reorder_point",
         "target_stock",
+        "on_hand",
+        "on_order",
+        "inventory_position",
         "recommended_order_qty",
+        "order_basis",
         "recommendation",
     ]
     return policy[keep_cols].sort_values("forecast_30d", ascending=False).reset_index(drop=True)
@@ -120,7 +174,8 @@ def predict() -> pd.DataFrame:
     """Genera tabla final de recomendaciones de inventario por SKU."""
     raw = load_transactions()
     clean = clean_transactions(raw)
-    daily = prepare_daily_demand(clean)
+    abc = compute_abc_classification(sales_by_product_last_quarter(clean))
+    daily = prepare_daily_demand(clean, abc=abc)
 
     rolling = build_rolling_features(daily)
     latest_features = (
@@ -130,11 +185,12 @@ def predict() -> pd.DataFrame:
         .reset_index(drop=True)
     )
     forecast = forecast_30d_baseline(daily, lookback_days=30, horizon_days=30)
-    abc = compute_abc_classification(sales_by_product_last_quarter(clean))
     ets = forecast_ets_class_a(daily, abc)
     forecast = overlay_ets_forecast(forecast, ets)
 
-    policy = build_reorder_policy(latest_features, forecast, abc)
+    policy = build_reorder_policy(
+        latest_features, forecast, abc, stock_positions=load_stock_positions()
+    )
     save_processed(policy, "inventory_reorder_recommendations.csv")
     return policy
 

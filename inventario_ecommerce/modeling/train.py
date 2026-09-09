@@ -100,7 +100,7 @@ def train() -> dict[str, pd.DataFrame]:
     abc = compute_abc_classification(last_quarter_sales, sales_col="TotalSales")
     save_processed(abc, "abc_last_quarter.csv")
 
-    daily = prepare_daily_demand(clean)
+    daily = prepare_daily_demand(clean, abc=abc)
     rolling = build_rolling_features(daily)
     latest_features = (
         rolling.sort_values("Date")

@@ -11,6 +11,7 @@ from inventario_ecommerce.features import (
     fill_missing_demand_days,
     sales_by_product_last_quarter,
     winsorize_daily_quantity,
+    winsorize_daily_quantity_by_class,
 )
 
 
@@ -169,6 +170,60 @@ def test_winsorize_daily_quantity_caps_at_percentile():
     )
 
     capped = winsorize_daily_quantity(daily, percentile=0.5)
+
+    assert capped["QuantitySold"].max() == 2.5
+
+
+def test_winsorize_by_class_protects_class_a_peaks():
+    dates = pd.date_range("2011-12-01", periods=4, freq="D")
+    daily = pd.DataFrame(
+        {
+            "Date": list(dates) * 2,
+            config.COL_STOCK_CODE: ["A1"] * 4 + ["C1"] * 4,
+            config.COL_DESCRIPTION: ["TOP"] * 4 + ["TAIL"] * 4,
+            "QuantitySold": [100.0, 200.0, 300.0, 400.0, 1.0, 2.0, 3.0, 4.0],
+        }
+    )
+    abc = pd.DataFrame(
+        {
+            config.COL_STOCK_CODE: ["A1", "C1"],
+            config.COL_DESCRIPTION: ["TOP", "TAIL"],
+            "TotalSales": [1000.0, 10.0],
+            "ABCClass": ["A", "C"],
+        }
+    )
+
+    global_cap = winsorize_daily_quantity(daily, percentile=0.5)
+    by_class = winsorize_daily_quantity_by_class(daily, abc, percentile=0.5)
+
+    class_a = by_class[by_class[config.COL_STOCK_CODE] == "A1"]["QuantitySold"]
+    class_c = by_class[by_class[config.COL_STOCK_CODE] == "C1"]["QuantitySold"]
+
+    # El cap global mezcla las dos escalas y recorta al top; el cap por clase no.
+    assert global_cap[global_cap[config.COL_STOCK_CODE] == "A1"]["QuantitySold"].max() == 52.0
+    assert class_a.max() == 250.0
+    assert class_c.max() == 2.5
+
+
+def test_winsorize_by_class_falls_back_to_global_cap_without_class():
+    daily = pd.DataFrame(
+        {
+            "Date": pd.date_range("2011-12-01", periods=4, freq="D"),
+            config.COL_STOCK_CODE: ["Z9"] * 4,
+            config.COL_DESCRIPTION: ["SIN CLASE"] * 4,
+            "QuantitySold": [1.0, 2.0, 3.0, 100.0],
+        }
+    )
+    abc = pd.DataFrame(
+        {
+            config.COL_STOCK_CODE: ["A1"],
+            config.COL_DESCRIPTION: ["TOP"],
+            "TotalSales": [10.0],
+            "ABCClass": ["A"],
+        }
+    )
+
+    capped = winsorize_daily_quantity_by_class(daily, abc, percentile=0.5)
 
     assert capped["QuantitySold"].max() == 2.5
 

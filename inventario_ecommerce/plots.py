@@ -55,6 +55,42 @@ def plot_class_a_mae_comparison(
     return out_path
 
 
+def plot_policy_service_tradeoff(
+    summary: pd.DataFrame,
+    save: bool = True,
+) -> Path | None:
+    """Stock medio sostenido frente al fill rate logrado por cada política."""
+    ordered = summary.sort_values("fill_rate")
+    x = ordered["fill_rate"] * 100
+    y = ordered["avg_on_hand_units"] / 1000
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(x, y, color="#adb5bd", linewidth=1, zorder=2)
+    ax.scatter(x, y, s=90, color="#0d6efd", zorder=3)
+    # Etiquetas alternadas arriba/abajo: hay políticas casi superpuestas.
+    for i, row in enumerate(ordered.itertuples(index=False)):
+        ax.annotate(
+            row.policy,
+            (row.fill_rate * 100, row.avg_on_hand_units / 1000),
+            textcoords="offset points",
+            xytext=(0, 11) if i % 2 == 0 else (0, -19),
+            ha="center",
+            fontsize=9,
+        )
+    ax.set_xlabel("Fill rate (% de unidades servidas)")
+    ax.set_ylabel("Stock medio en almacén (miles de ud)")
+    ax.set_title("Coste del nivel de servicio — holdout 30 días")
+    ax.grid(alpha=0.3, zorder=0)
+    fig.tight_layout()
+
+    out_path = None
+    if save:
+        config.FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = config.FIGURES_DIR / "policy_service_tradeoff.png"
+        fig.savefig(out_path, dpi=120)
+    return out_path
+
+
 def plot_sku_forecast_comparison(
     comparison: pd.DataFrame,
     title: str,

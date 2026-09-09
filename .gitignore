@@ -19,6 +19,7 @@ reports/figures/*
 !reports/figures/top_products_last_quarter.png
 !reports/figures/class_a_ets_vs_baseline.png
 !reports/figures/class_a_sku_forecast.png
+!reports/figures/policy_service_tradeoff.png
 
 # Python
 __pycache__/

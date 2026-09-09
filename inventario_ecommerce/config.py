@@ -77,3 +77,9 @@ LEAD_TIME_DAYS = 14
 REVIEW_PERIOD_DAYS = 7
 SERVICE_Z_BY_CLASS = {"A": 1.88, "B": 1.65, "C": 1.28}
 DEFAULT_SERVICE_Z = 1.28
+
+# Coste de la política. El dataset trae precio de venta, no coste de compra:
+# el margen y la tasa de posesión son supuestos, no datos.
+GROSS_MARGIN_RATE = 0.40  # del precio de venta
+ANNUAL_HOLDING_RATE = 0.25  # % del coste unitario al año (capital, almacén, merma)
+SERVICE_Z_GRID = (0.0, 0.25, 0.5, 0.75, 1.0, 1.28, 1.5, 1.65, 1.88, 2.0, 2.33, 2.5, 3.0)

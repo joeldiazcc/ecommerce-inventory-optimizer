@@ -28,6 +28,7 @@ Datos: [Online Retail II (UCI / Kaggle)](https://www.kaggle.com/datasets/mashlyn
 4. **Forecast** — media móvil 30 días en todo el catálogo; Holt-Winters en el top 100 clase A
 5. **Reorden** — `ROP = forecast_daily × LT + z × σ_30d × √LT`, con lead time 14 d, revisión 7 d y z por clase (1.88 / 1.65 / 1.28)
 6. **Simulación** — se repone día a día sobre el holdout para medir quiebres y stock inmovilizado
+7. **Coste** — se valoran esas unidades con margen y tasa de posesión supuestos, y se elige el z de menor coste total
 
 Reglas de limpieza, parámetros y columnas de salida en detalle: [`docs/data_dictionary.md`](docs/data_dictionary.md).
 
@@ -65,6 +66,22 @@ Pedir la media no es una política: deja sin servir una de cada cuatro unidades.
 
 Ninguna política llega al 90%, y ahí el problema no es el factor de seguridad: el holdout es la subida de Navidad, la demanda real se va por encima de la media entrenada y con 14 días de lead time no da tiempo a reaccionar. Lo que falta es nivel en el forecast, no z.
 
+### Qué cuesta en dinero
+
+Las unidades no pesan igual: una no servida de un SKU caro y una parada de uno barato son costes distintos. Con el precio mediano del trimestre, un margen bruto del 40% y una tasa de posesión del 25%/año (supuestos: el dataset no trae coste de compra), se barre un grid de z y se elige el de menor coste total.
+
+| z | Fill rate | Margen perdido | Capital inmovilizado | Coste total |
+|--:|------:|------:|------:|------:|
+| 0.00 (pedir la media) | 73.2% | 149,091 | 4,990 | 154,081 |
+| 1.88 (clase A actual) | 87.7% | 72,686 | 10,307 | 82,993 |
+| **3.00 (óptimo)** | **91.6%** | **50,961** | **13,766** | **64,726** |
+
+![Coste de quiebre, posesión y total frente a z](reports/figures/policy_cost_vs_service.png)
+
+Sobre 30 días, inmovilizar una unidad cuesta ~2% de su coste; no servirla cuesta el 40% del precio. Por eso el óptimo se va al techo del grid: subir de z = 1.88 a z = 3.0 ahorra ~18k en el holdout. Las tres clases ABC eligen el mismo z = 3.0 —diferenciar el factor de seguridad por clase no se justifica en coste bajo estos supuestos.
+
+Solo con márgenes muy finos (≤10%) y alta obsolescencia (≥50%/año) el óptimo baja. En el extremo (5% de margen, 100% de posesión) conviene z = 0. En retail razonable, el cuello de botella sigue siendo el forecast, no el stock de seguridad.
+
 ## Supuestos y limitaciones
 
 Lo que este proyecto **no** resuelve, y conviene saber antes de leer los números:
@@ -74,7 +91,7 @@ Lo que este proyecto **no** resuelve, y conviene saber antes de leer los número
 - **El stock de seguridad asume normalidad.** `z × σ × √LT` supone demanda normal y lead time constante; la demanda real es intermitente, así que el nivel de servicio es aproximado, no garantizado.
 - **El cap sigue recortando picos reales.** Por clase se queda en 315 ud/día (A), 183 (B) y 120 (C), frente a las 225 del cap global. Eso baja de 3,279 a 1,777 los días-SKU recortados en clase A, pero el máximo real de `22197` fueron 4,314 ud en un día: el MAE absoluto no es el error contra la demanda cruda. Los modelos se comparan sobre la misma serie recortada, así que la comparación entre ellos sí es válida.
 - **Los sábados la tienda no factura** (400 facturas frente a 150-200k de cualquier otro día). Parte de los ceros del calendario no son demanda perdida, son días sin operación.
-- **La simulación no tiene precios ni costes.** Compara unidades perdidas contra unidades en almacén, no euros de margen contra euros de capital inmovilizado. Tampoco modela backorders, capacidad de almacén ni lead time variable, y arranca cada política con su stock objetivo en la estantería: es un warm start, no una historia completa.
+- **La simulación no tiene precios ni costes.** Compara unidades perdidas contra unidades en almacén. El módulo de coste (`modeling/economics.py`) valora esas unidades con un margen y una tasa de posesión **supuestos** (40% y 25%/año): el dataset trae precio de venta, no coste de compra. Tampoco modela backorders, capacidad de almacén ni lead time variable, y arranca cada política con su stock objetivo en la estantería: es un warm start, no una historia completa.
 
 ## Qué hay en este repo
 
@@ -85,8 +102,9 @@ Lo que este proyecto **no** resuelve, y conviene saber antes de leer los número
 | `notebooks/03_demand_hygiene.ipynb` | Qué cambia al rellenar ceros y recortar picos, y por qué el cap va por clase |
 | `notebooks/04_forecast_class_a.ipynb` | Holt-Winters vs media móvil en el top clase A |
 | `notebooks/05_policy_simulation.ipynb` | Quiebres vs stock inmovilizado de cada política |
+| `notebooks/06_policy_cost.ipynb` | Coste en dinero: margen perdido vs capital inmovilizado |
 | `inventario_ecommerce/` | Paquete: `config`, `dataset`, `features`, `modeling`, `plots` |
-| `tests/` | Tests de limpieza, calendario, winsor, ABC, política y simulación |
+| `tests/` | Tests de limpieza, calendario, winsor, ABC, política, simulación y coste |
 | `docs/data_dictionary.md` | Esquema de entrada, reglas de limpieza y columnas de la salida |
 | `data/raw/sample_online_retail.csv` | Sample para probar el código sin bajar Kaggle |
 
@@ -105,9 +123,10 @@ Pipeline completo:
 python -m inventario_ecommerce.modeling.train      # backtests y métricas
 python -m inventario_ecommerce.modeling.predict    # tabla de reposición
 python -m inventario_ecommerce.modeling.simulate   # quiebres vs stock por política
+python -m inventario_ecommerce.modeling.economics  # coste en dinero y z óptimo
 ```
 
-Las notebooks siguen el orden **01 → 02**; la **03** justifica la higiene de demanda, la **04** compara modelos en clase A y la **05** simula la política de reposición.
+Las notebooks siguen el orden **01 → 02**; la **03** justifica la higiene de demanda, la **04** compara modelos en clase A, la **05** simula la política y la **06** la valora en dinero.
 
 ### Dataset completo
 
@@ -122,14 +141,14 @@ Sin él, el sample local basta para validar el código.
 
 ```
 inventario_ecommerce/     # paquete instalable
-notebooks/                # 01 → 05, con outputs
+notebooks/                # 01 → 06, con outputs
 tests/                    # pytest
 docs/                     # diccionario de datos
 data/                     # raw y processed (gitignored)
 reports/figures/          # gráficos versionados
 ```
 
-`train`, `predict` y `simulate` dejan en `data/processed/` la tabla de reposición y los intermedios (ABC, features rolling, métricas de backtest por SKU y resultados de la simulación).
+`train`, `predict`, `simulate` y `economics` dejan en `data/processed/` la tabla de reposición y los intermedios (ABC, features rolling, métricas de backtest, simulación y coste de la política).
 
 ## Stack
 

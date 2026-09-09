@@ -1,4 +1,4 @@
-.PHONY: requirements test notebook notebook2 notebook3 notebook4 notebook5 train predict simulate
+.PHONY: requirements test notebook notebook2 notebook3 notebook4 notebook5 notebook6 train predict simulate economics
 
 requirements:
 	pip install -e ".[dev]"
@@ -29,3 +29,9 @@ predict:
 
 simulate:
 	python -m inventario_ecommerce.modeling.simulate
+
+economics:
+	python -m inventario_ecommerce.modeling.economics
+
+notebook6:
+	jupyter notebook notebooks/06_policy_cost.ipynb

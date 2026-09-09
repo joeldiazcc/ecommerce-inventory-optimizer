@@ -125,4 +125,22 @@ Simulación de reposición sobre el mismo holdout de 30 días (`python -m invent
 
 **Reglas de la simulación:** revisión cada 7 días, lead time 14 días, venta perdida (sin backorder) y arranque con `target_stock` en almacén. Cada día llegan las recepciones, se sirve la demanda con lo disponible y, si toca revisión y la posición cayó al punto de reorden, se pide hasta el objetivo.
 
+## Coste de la política: `data/processed/policy_cost_*.csv`
+
+`python -m inventario_ecommerce.modeling.economics` valora la misma simulación en dinero. El dataset trae precio de venta, no coste de compra: margen bruto y tasa de posesión son supuestos (`config.GROSS_MARGIN_RATE = 0.40`, `config.ANNUAL_HOLDING_RATE = 0.25`).
+
+| Artefacto | Contenido |
+|-----------|-----------|
+| `policy_cost_by_z.csv` | Una fila por z del grid: fill rate, margen perdido, coste de posesión, coste total |
+| `policy_cost_optimal_by_class.csv` | z de coste mínimo dentro de cada clase ABC |
+| `policy_cost_sensitivity.csv` | z óptimo bajo distintos márgenes y tasas de posesión |
+
+| Columna | Unidad | Descripción |
+|---------|--------|-------------|
+| z | — | Factor de stock de seguridad |
+| stockout_cost | moneda | `units_lost × unit_price × margen` |
+| holding_cost | moneda | `avg_on_hand × unit_cost × tasa_posesión × (horizonte / 365)` |
+| total_cost | moneda | `stockout_cost + holding_cost` |
+| unit_price | moneda | Mediana del precio de factura del SKU en el trimestre |
+
 Los demás CSV de `data/processed/` son intermedios: `sales_last_quarter_by_product.csv`, `abc_last_quarter.csv`, `sku_rolling_features_latest.csv`, `forecast_backtest_by_sku.csv`, `forecast_backtest_global.csv`, `forecast_backtest_class_a_global.csv`.

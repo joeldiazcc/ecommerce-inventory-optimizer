@@ -55,6 +55,78 @@ def plot_class_a_mae_comparison(
     return out_path
 
 
+def plot_policy_service_tradeoff(
+    summary: pd.DataFrame,
+    save: bool = True,
+) -> Path | None:
+    """Stock medio sostenido frente al fill rate logrado por cada política."""
+    ordered = summary.sort_values("fill_rate")
+    x = ordered["fill_rate"] * 100
+    y = ordered["avg_on_hand_units"] / 1000
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(x, y, color="#adb5bd", linewidth=1, zorder=2)
+    ax.scatter(x, y, s=90, color="#0d6efd", zorder=3)
+    # Etiquetas alternadas arriba/abajo: hay políticas casi superpuestas.
+    for i, row in enumerate(ordered.itertuples(index=False)):
+        ax.annotate(
+            row.policy,
+            (row.fill_rate * 100, row.avg_on_hand_units / 1000),
+            textcoords="offset points",
+            xytext=(0, 11) if i % 2 == 0 else (0, -19),
+            ha="center",
+            fontsize=9,
+        )
+    ax.set_xlabel("Fill rate (% de unidades servidas)")
+    ax.set_ylabel("Stock medio en almacén (miles de ud)")
+    ax.set_title("Coste del nivel de servicio — holdout 30 días")
+    ax.grid(alpha=0.3, zorder=0)
+    fig.tight_layout()
+
+    out_path = None
+    if save:
+        config.FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = config.FIGURES_DIR / "policy_service_tradeoff.png"
+        fig.savefig(out_path, dpi=120)
+    return out_path
+
+
+def plot_cost_vs_service(
+    costs: pd.DataFrame,
+    save: bool = True,
+) -> Path | None:
+    """Coste de quiebre, de posesión y total a lo largo del barrido de z."""
+    ordered = costs.sort_values("z")
+    z = ordered["z"]
+    best = ordered.loc[ordered["total_cost"].idxmin()]
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(z, ordered["stockout_cost"] / 1000, label="Margen perdido", color="#dc3545")
+    ax.plot(z, ordered["holding_cost"] / 1000, label="Capital inmovilizado", color="#6c757d")
+    ax.plot(z, ordered["total_cost"] / 1000, label="Coste total", color="#0d6efd", linewidth=2)
+    ax.axvline(best["z"], color="#0d6efd", linestyle=":", linewidth=1)
+    ax.annotate(
+        f"z óptimo = {best['z']:.2f}\nfill rate {best['fill_rate']:.1%}",
+        (best["z"], best["total_cost"] / 1000),
+        textcoords="offset points",
+        xytext=(12, 18),
+        fontsize=9,
+    )
+    ax.set_xlabel("z (factor de stock de seguridad)")
+    ax.set_ylabel("Coste en el holdout (miles)")
+    ax.set_title("Coste de la política — 30 días, margen 40%, posesión 25%/año")
+    ax.legend()
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+
+    out_path = None
+    if save:
+        config.FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = config.FIGURES_DIR / "policy_cost_vs_service.png"
+        fig.savefig(out_path, dpi=120)
+    return out_path
+
+
 def plot_sku_forecast_comparison(
     comparison: pd.DataFrame,
     title: str,

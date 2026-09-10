@@ -160,6 +160,53 @@ def winsorize_daily_quantity(
 
     cap = float(positive.quantile(pct))
     out["QuantitySold"] = out["QuantitySold"].clip(upper=cap)
+    out.attrs["winsor_caps"] = {"global": cap}
+    return out
+
+
+def abc_class_by_sku(abc: pd.DataFrame) -> pd.Series:
+    """Mapa StockCode → clase ABC. Con descripciones duplicadas gana la de más ventas."""
+    if abc.empty:
+        return pd.Series(dtype=object)
+    ranked = abc.sort_values("TotalSales", ascending=False) if "TotalSales" in abc else abc
+    ranked = ranked.assign(
+        _stock=ranked[config.COL_STOCK_CODE].astype(str).str.strip()
+    ).drop_duplicates(subset="_stock", keep="first")
+    return ranked.set_index("_stock")["ABCClass"]
+
+
+def winsorize_daily_quantity_by_class(
+    daily_sku_demand: pd.DataFrame,
+    abc: pd.DataFrame,
+    percentile: float | None = None,
+) -> pd.DataFrame:
+    """Cap QuantitySold al percentil calculado dentro de cada clase ABC.
+
+    Los SKUs sin clase (sin ventas en el trimestre) caen al cap global.
+    """
+    if daily_sku_demand.empty or abc is None or abc.empty:
+        return winsorize_daily_quantity(daily_sku_demand, percentile)
+
+    pct = config.DAILY_QTY_WINSOR_PERCENTILE if percentile is None else percentile
+    out = daily_sku_demand.copy()
+    positive_mask = out["QuantitySold"] > 0
+    if not positive_mask.any():
+        return out
+
+    stock = out[config.COL_STOCK_CODE].astype(str).str.strip()
+    sku_class = stock.map(abc_class_by_sku(abc))
+
+    caps = (
+        out.loc[positive_mask, "QuantitySold"]
+        .groupby(sku_class[positive_mask])
+        .quantile(pct)
+        .astype(float)
+    )
+    global_cap = float(out.loc[positive_mask, "QuantitySold"].quantile(pct))
+
+    row_caps = sku_class.map(caps).astype(float).fillna(global_cap)
+    out["QuantitySold"] = np.minimum(out["QuantitySold"], row_caps)
+    out.attrs["winsor_caps"] = {**caps.to_dict(), "sin_clase": global_cap}
     return out
 
 
@@ -173,12 +220,24 @@ def drop_outlier_skus(daily_sku_demand: pd.DataFrame) -> pd.DataFrame:
     ].reset_index(drop=True)
 
 
-def prepare_daily_demand(df: pd.DataFrame) -> pd.DataFrame:
-    """Pipeline diario: agregación → ceros → winsor → drop outliers."""
+def prepare_daily_demand(
+    df: pd.DataFrame,
+    abc: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Pipeline diario: agregación → ceros → winsor → drop outliers.
+
+    Con `abc` y `config.WINSOR_BY_ABC_CLASS` el cap se calcula por clase.
+    """
     daily = build_daily_sku_demand(df)
     daily = fill_missing_demand_days(daily)
-    daily = winsorize_daily_quantity(daily)
+    if abc is not None and config.WINSOR_BY_ABC_CLASS:
+        daily = winsorize_daily_quantity_by_class(daily, abc)
+    else:
+        daily = winsorize_daily_quantity(daily)
+    caps = daily.attrs.get("winsor_caps")
     daily = drop_outlier_skus(daily)
+    if caps:
+        daily.attrs["winsor_caps"] = caps
     return daily
 
 

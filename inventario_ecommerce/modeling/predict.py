@@ -156,6 +156,7 @@ def build_reorder_policy(
         "demand_mean_30d",
         "demand_std_30d",
         "demand_cv_30d",
+        "z_service",
         "lead_time_demand",
         "safety_stock",
         "reorder_point",

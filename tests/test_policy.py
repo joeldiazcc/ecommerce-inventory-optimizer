@@ -30,6 +30,7 @@ def test_order_falls_back_to_review_cycle_without_stock_source():
     assert policy.loc[0, "reorder_point"] == 140.0
     assert policy.loc[0, "target_stock"] == 210.0
     assert policy.loc[0, "recommended_order_qty"] == 70.0
+    assert policy.loc[0, "z_service"] == config.SERVICE_Z_BY_CLASS["A"]
     assert policy.loc[0, "order_basis"] == "ciclo_revision"
     assert np.isnan(policy.loc[0, "on_hand"])
 

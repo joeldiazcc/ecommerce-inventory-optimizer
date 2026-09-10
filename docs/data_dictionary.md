@@ -69,6 +69,7 @@ Una fila por SKU con venta en los últimos 30 días **y** presencia en el ABC de
 | forecast_model | `ma30` / `ets` | Modelo usado en ese SKU |
 | demand_mean_30d / demand_std_30d | ud/día | Media y desviación de la demanda diaria (últimos 30 d) |
 | demand_cv_30d | ratio | Volatilidad relativa de la demanda |
+| z_service | — | Factor de stock de seguridad aplicado al SKU |
 | lead_time_demand | ud | `forecast_daily × 14` |
 | safety_stock | ud | `z × demand_std_30d × √14` |
 | reorder_point | ud | `lead_time_demand + safety_stock` |
@@ -79,7 +80,7 @@ Una fila por SKU con venta en los últimos 30 días **y** presencia en el ABC de
 | order_basis | texto | `ciclo_revision` o `target_menos_posicion` |
 | recommendation | texto | Cadencia de revisión sugerida según clase |
 
-**Parámetros de la política:** lead time 14 días, ciclo de revisión 7 días, z = 1.88 (A) / 1.65 (B) / 1.28 (C).
+**Parámetros de la política:** lead time 14 días, ciclo de revisión 7 días, **z = 3.0** en las tres clases ABC (coste mínimo bajo margen 40% y posesión 25%/año; ver notebook 06). Columna `z_service` en la salida.
 
 ## Entrada opcional: `data/raw/stock_on_hand.csv`
 

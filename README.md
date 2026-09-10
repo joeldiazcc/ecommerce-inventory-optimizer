@@ -10,11 +10,11 @@ Datos: [Online Retail II (UCI / Kaggle)](https://www.kaggle.com/datasets/mashlyn
 
 | SKU | Descripción | ABC | Forecast (ud/día) | Modelo | Punto de reorden | Pedido sugerido |
 |-----|-------------|:---:|------:|:---:|------:|------:|
-| `22197` | Popcorn Holder | A | 259.9 | ets | 4,467 | 1,820 |
-| `23084` | Rabbit Night Light | A | 218.6 | ets | 3,889 | 1,531 |
-| `22086` | Paper Chain Kit 50's Christmas | A | 189.9 | ets | 3,451 | 1,330 |
-| `84077` | World War 2 Gliders Asstd Designs | A | 146.9 | ma30 | 2,810 | 1,028 |
-| `22578` | Wooden Star Christmas Scandinavian | A | 145.7 | ma30 | 2,750 | 1,020 |
+| `22197` | Popcorn Holder | A | 259.9 | ets | 4,960 | 1,820 |
+| `23084` | Rabbit Night Light | A | 218.6 | ets | 4,382 | 1,531 |
+| `22086` | Paper Chain Kit 50's Christmas | A | 189.9 | ets | 3,923 | 1,330 |
+| `84077` | World War 2 Gliders Asstd Designs | A | 146.9 | ma30 | 3,258 | 1,028 |
+| `22578` | Wooden Star Christmas Scandinavian | A | 145.7 | ma30 | 3,173 | 1,020 |
 
 - **Punto de reorden** — nivel de stock al que lanzar el pedido, stock de seguridad incluido.
 - **Pedido sugerido** — demanda del ciclo de revisión (7 días), o `target − on_hand − on_order` si se aporta el stock físico.
@@ -26,9 +26,9 @@ Datos: [Online Retail II (UCI / Kaggle)](https://www.kaggle.com/datasets/mashlyn
 2. **ABC** — 80% / 95% de las ventas acumuladas del último trimestre
 3. **Demanda diaria** — calendario continuo por SKU con los días sin venta a 0, cap al percentil 99 **de cada clase ABC** y exclusión de one-shots
 4. **Forecast** — media móvil 30 días en todo el catálogo; Holt-Winters en el top 100 clase A
-5. **Reorden** — `ROP = forecast_daily × LT + z × σ_30d × √LT`, con lead time 14 d, revisión 7 d y z por clase (1.88 / 1.65 / 1.28)
+5. **Reorden** — `ROP = forecast_daily × LT + z × σ_30d × √LT`, con lead time 14 d, revisión 7 d y **z = 3.0** (coste mínimo bajo margen 40% / posesión 25%/año)
 6. **Simulación** — se repone día a día sobre el holdout para medir quiebres y stock inmovilizado
-7. **Coste** — se valoran esas unidades con margen y tasa de posesión supuestos, y se elige el z de menor coste total
+7. **Coste** — se valoran esas unidades con margen y tasa de posesión supuestos; el z de producción sale de ahí
 
 Reglas de limpieza, parámetros y columnas de salida en detalle: [`docs/data_dictionary.md`](docs/data_dictionary.md).
 
@@ -56,15 +56,15 @@ El backtest mide el forecast; la simulación mide la decisión. Se repone día a
 | Política | Fill rate | Unidades perdidas | Stock medio (ud) | Días de cobertura |
 |----------|------:|------:|------:|------:|
 | Pedir la media (sin stock de seguridad) | 73.2% | 184,336 | 199,265 | 8.7 |
-| z por clase ABC (la del proyecto) | **87.0%** | 89,848 | 380,216 | 16.6 |
-| z por clase + forecast ETS | 87.6% | 85,095 | 395,917 | 17.2 |
+| z por clase antiguo (1.88 / 1.65 / 1.28) | 87.0% | 89,848 | 380,216 | 16.6 |
 | z = 2.33 uniforme (99%) | 89.5% | 72,189 | 451,964 | 19.7 |
+| **z = 3.0 (política actual)** | **91.6%** | **57,895** | **531,778** | **23.2** |
 
 ![Stock medio frente al fill rate de cada política](reports/figures/policy_service_tradeoff.png)
 
-Pedir la media no es una política: deja sin servir una de cada cuatro unidades. Pasar de ahí a la política del proyecto cuesta **1.9 unidades de stock parado por cada unidad extra servida**; el tramo siguiente, de la política del proyecto a z = 2.33, ya sale a 4.1. Diferenciar por clase hace lo que promete: la clase A queda en 91.7% de fill rate frente al 70.0% de la C, con menos stock total que un z uniforme del 99%.
+Pedir la media no es una política: deja sin servir una de cada cuatro unidades. La política antigua por clase compraba servicio a ~1.9 unidades de stock parado por unidad extra servida; seguir subiendo encarece el tramo. El análisis de coste (abajo) fijó el z de producción en **3.0** para las tres clases.
 
-Ninguna política llega al 90%, y ahí el problema no es el factor de seguridad: el holdout es la subida de Navidad, la demanda real se va por encima de la media entrenada y con 14 días de lead time no da tiempo a reaccionar. Lo que falta es nivel en el forecast, no z.
+Incluso con z = 3.0 el fill rate se queda en 91.6%: el holdout es la subida de Navidad, la demanda real se va por encima de la media entrenada y con 14 días de lead time no da tiempo a reaccionar. Lo que falta a partir de aquí es nivel en el forecast, no más stock de seguridad.
 
 ### Qué cuesta en dinero
 
@@ -73,12 +73,12 @@ Las unidades no pesan igual: una no servida de un SKU caro y una parada de uno b
 | z | Fill rate | Margen perdido | Capital inmovilizado | Coste total |
 |--:|------:|------:|------:|------:|
 | 0.00 (pedir la media) | 73.2% | 149,091 | 4,990 | 154,081 |
-| 1.88 (clase A actual) | 87.7% | 72,686 | 10,307 | 82,993 |
-| **3.00 (óptimo)** | **91.6%** | **50,961** | **13,766** | **64,726** |
+| 1.88 (política anterior, clase A) | 87.7% | 72,686 | 10,307 | 82,993 |
+| **3.00 (adoptado)** | **91.6%** | **50,961** | **13,766** | **64,726** |
 
 ![Coste de quiebre, posesión y total frente a z](reports/figures/policy_cost_vs_service.png)
 
-Sobre 30 días, inmovilizar una unidad cuesta ~2% de su coste; no servirla cuesta el 40% del precio. Por eso el óptimo se va al techo del grid: subir de z = 1.88 a z = 3.0 ahorra ~18k en el holdout. Las tres clases ABC eligen el mismo z = 3.0 —diferenciar el factor de seguridad por clase no se justifica en coste bajo estos supuestos.
+Sobre 30 días, inmovilizar una unidad cuesta ~2% de su coste; no servirla cuesta el 40% del precio. Por eso el óptimo se va al techo del grid: subir de z = 1.88 a z = 3.0 ahorra ~18k en el holdout. Las tres clases ABC eligen el mismo z = 3.0 —diferenciar el factor de seguridad por clase no se justifica en coste bajo estos supuestos—, y **esa es la política que usa `predict` hoy**.
 
 Solo con márgenes muy finos (≤10%) y alta obsolescencia (≥50%/año) el óptimo baja. En el extremo (5% de margen, 100% de posesión) conviene z = 0. En retail razonable, el cuello de botella sigue siendo el forecast, no el stock de seguridad.
 

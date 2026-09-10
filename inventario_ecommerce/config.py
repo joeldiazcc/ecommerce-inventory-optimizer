@@ -75,8 +75,12 @@ ETS_MIN_TRAIN_DAYS = 56
 # Política de reposición: revisión periódica con lead time fijo.
 LEAD_TIME_DAYS = 14
 REVIEW_PERIOD_DAYS = 7
-SERVICE_Z_BY_CLASS = {"A": 1.88, "B": 1.65, "C": 1.28}
-DEFAULT_SERVICE_Z = 1.28
+# z = 3.0 minimiza coste total bajo margen 40% y posesión 25%/año
+# (notebook 06). Las tres clases eligen el mismo valor: diferenciar ya no
+# se justifica con esos supuestos. El mapa por clase se mantiene por si
+# mañana el margen o la obsolescencia sí cambian entre A/B/C.
+SERVICE_Z_BY_CLASS = {"A": 3.0, "B": 3.0, "C": 3.0}
+DEFAULT_SERVICE_Z = 3.0
 
 # Coste de la política. El dataset trae precio de venta, no coste de compra:
 # el margen y la tasa de posesión son supuestos, no datos.

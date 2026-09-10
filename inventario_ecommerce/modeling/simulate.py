@@ -35,7 +35,7 @@ class PolicySpec:
 
 DEFAULT_POLICIES: tuple[PolicySpec, ...] = (
     PolicySpec("media", "Pedir la media (sin stock de seguridad)", z=0.0),
-    PolicySpec("z_clase", "ROP con z por clase ABC", z=None),
+    PolicySpec("z_clase", "ROP con z de config.SERVICE_Z_BY_CLASS", z=None),
     PolicySpec("z_90", "ROP con z = 1.28 (90%)", z=1.28),
     PolicySpec("z_95", "ROP con z = 1.65 (95%)", z=1.65),
     PolicySpec("z_99", "ROP con z = 2.33 (99%)", z=2.33),
